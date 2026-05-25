@@ -1,0 +1,10 @@
+{
+  "github_owner": "YOUR_GITHUB_USERNAME",
+  "owner_type": "user",
+  "include_private": true,
+  "include_archived": false,
+  "include_forks": false,
+  "include_missing_readme": false,
+  "max_repos": 25,
+  "openai_model": "gpt-4.1-mini"
+}

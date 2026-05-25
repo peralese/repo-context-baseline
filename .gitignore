@@ -1,0 +1,8 @@
+.env
+config.json
+outputs/*.json
+outputs/baseline-index.md
+outputs/summaries/*.md
+__pycache__/
+.pycache/
+.venv/
