@@ -57,7 +57,7 @@ def load_config(path: str) -> dict[str, Any]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate baseline project overviews from GitHub repository READMEs."
+        description="Generate operational project baselines from GitHub repository READMEs."
     )
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH, help="Path to config JSON.")
     parser.add_argument("--limit", type=int, help="Override config max_repos.")

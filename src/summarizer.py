@@ -7,7 +7,7 @@ MAX_README_CHARS = 24000
 
 
 class SummarizerError(Exception):
-    """Raised when overview generation fails."""
+    """Raised when baseline generation fails."""
 
 
 class OpenAISummarizer:
@@ -37,10 +37,11 @@ class OpenAISummarizer:
                     {
                         "role": "system",
                         "content": (
-                            "You generate concise operational project overviews from repository READMEs. "
-                            "Do not merely summarize. Extract maturity, capabilities, gaps, operational signals, "
-                            "and implied next steps. If no clear next step exists, say exactly: "
-                            "No explicit next step found in README"
+                            "You generate concise operational project baselines from repository READMEs. "
+                            "Do not merely summarize the README. Extract documentation-derived operational state "
+                            "for comparison against OpenClaw context.md outputs. Keep architecture detail brief, "
+                            "separate evidence from inference, and use the required fallback wording when evidence "
+                            "is missing."
                         ),
                     },
                     {"role": "user", "content": prompt},
@@ -48,7 +49,7 @@ class OpenAISummarizer:
             )
             return response.output_text.strip()
         except Exception as error:  # noqa: BLE001 - preserve simple MVP error handling around SDK calls.
-            raise SummarizerError(f"OpenAI overview generation failed: {error}") from error
+            raise SummarizerError(f"OpenAI baseline generation failed: {error}") from error
 
 
 def truncate_readme(readme_content: str) -> str:
@@ -63,7 +64,7 @@ def truncate_readme(readme_content: str) -> str:
 
 def build_prompt(*, repo_name: str, repo_url: str, readme_content: str, readme_missing: bool) -> str:
     readme_note = (
-        "The README is missing. Produce a low-confidence overview and clearly state that operational "
+        "The README is missing. Produce a low-confidence baseline and clearly state that operational "
         "information is insufficient."
         if readme_missing
         else "Use the README below as the only evidence source."
@@ -74,9 +75,9 @@ Repository URL: {repo_url}
 
 {readme_note}
 
-Create a standardized markdown overview using exactly this structure:
+Create a standardized markdown baseline using exactly this structure:
 
-# Project Overview
+# Project Baseline
 
 ## Repository
 {repo_name}
@@ -85,39 +86,49 @@ Create a standardized markdown overview using exactly this structure:
 {repo_url}
 
 ## Purpose
-<short explanation>
+<1-2 sentences only>
+
+## Maturity
+<Choose exactly one: Prototype, Early Working App, Functional MVP, Mature Local Tool, Unknown. Include a one-sentence reason.>
 
 ## Current State
-- ...
+- <3-5 bullets max; focus on what appears implemented or working>
 
 ## Key Capabilities
-- ...
+- <3-6 bullets max; focus on user-visible or operational capabilities>
 
 ## Inferred Tech Stack
-- ...
+- <concise bullets only; avoid long explanations>
 
 ## Operational Signals
-- items that indicate what is currently active, incomplete, or important
+- <2-5 bullets max; include evidence of active workflow, automation, tests, CI/CD, services, deployment, roadmap, or maintenance>
+- <If none found, use exactly one bullet: No strong operational signals found in README>
 
-## Open Issues / Gaps
-- ...
+## Gaps / Risks
+- <2-5 bullets max; include missing docs, incomplete features, unclear next steps, operational risks, or README weaknesses>
+- <If none found, use exactly one bullet: No explicit gaps found in README>
 
-## Suggested Next Step
-- ...
+## Primary Suggested Next Step
+- <Exactly one bullet. Use the single most actionable next step from the README. If inferred rather than explicit, start with "Inferred: ". If there is not enough evidence, use exactly: No explicit next step found in README>
+
+## Additional Follow-Up
+- <0-3 bullets max; optional secondary items only; do not repeat the primary next step>
 
 ## Confidence / Notes
-- ...
+- Confidence: High / Medium / Low
+- <1-2 short notes explaining why>
 
 Important instructions:
 - Do not simply summarize the README.
-- Extract what the project appears to do.
-- Infer how mature the project looks from README signals.
-- Identify existing capabilities.
-- Identify what seems incomplete.
-- Identify the next step implied by the README.
-- If the README has no clear next step, include exactly this bullet: No explicit next step found in README
-- Say when the README lacks enough operational information.
-- Keep the overview concise and useful for later comparison against another project-context summary.
+- Extract operational project state from README evidence.
+- Prioritize README sections named Next Steps, TODO, Roadmap, Open Issues, In Progress, Known Limitations, Changelog, or Recent Work.
+- Deprioritize installation instructions, generic feature lists, badges, marketing descriptions, and long architecture explanations.
+- Do not pretend the README contains information it does not contain.
+- If the README has no explicit next step, say so using exactly: No explicit next step found in README
+- If inferring a next step, make it conservative and label it with "Inferred: ".
+- Do not generate multiple competing next steps in Primary Suggested Next Step.
+- Keep the total baseline concise, ideally under 700 words.
+- Avoid hype, marketing language, and broad roadmap paragraphs.
 
 README:
 ```markdown
