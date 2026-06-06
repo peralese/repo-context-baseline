@@ -15,6 +15,8 @@ The goal is to create an external repository inventory that can later be compare
 - Sends README content to OpenAI with `OPENAI_API_KEY`
 - Writes one markdown baseline per repository
 - Writes a JSON repository inventory and a markdown baseline index for comparing repository, maturity, next step, and confidence
+- Compares generated baselines against local OpenClaw `context.md` files
+- Writes per-project comparison reports and an OpenClaw comparison index
 
 ## Requirements
 
@@ -118,6 +120,47 @@ Preview repository selection without calling OpenAI or writing generated summari
 python src/main.py --config config.json --dry-run
 ```
 
+Compare generated baselines with local OpenClaw project contexts:
+
+```bash
+python3 src/main.py --compare-openclaw
+```
+
+Compare one generated baseline with its matching OpenClaw context:
+
+```bash
+python3 src/main.py --compare-openclaw --repo openclaw-operator
+```
+
+The comparison command does not call GitHub or OpenAI. It reads existing files from
+`outputs/summaries/` and looks for matching OpenClaw context files at:
+
+```text
+/Users/erickperales/Projects/<repo-name>/context.md
+```
+
+You can point it at a different local project root:
+
+```bash
+python3 src/main.py --compare-openclaw --projects-dir /path/to/Projects
+```
+
+The comparison generator can also be run directly:
+
+```bash
+python3 src/compare_openclaw.py
+```
+
+Or for one repository:
+
+```bash
+python3 src/compare_openclaw.py --repo openclaw-operator
+```
+
+Single-repository comparison runs write only `outputs/comparisons/<repo-name>.md` and
+skip updating `outputs/openclaw-comparison-index.md`. Full comparison runs regenerate
+the index.
+
 ## Outputs
 
 Generated files are written to `outputs/`:
@@ -126,6 +169,9 @@ Generated files are written to `outputs/`:
 outputs/
 ├── repos.json
 ├── baseline-index.md
+├── openclaw-comparison-index.md
+├── comparisons/
+│   └── <repo-name>.md
 └── summaries/
     └── <repo-name>.md
 ```
@@ -193,6 +239,22 @@ Example baseline index shape:
 | [repo-name](summaries/repo-name.md) | Functional MVP. The README describes a working CLI with documented configuration, outputs, and limitations. | Add comparison tooling against OpenClaw-generated context summaries. | High |
 ```
 
+Example OpenClaw comparison index shape:
+
+```markdown
+# OpenClaw Comparison Index
+
+| Repository | Overall Assessment | Current State | Open Issues | Next Step | Recommended Fix |
+| --- | --- | --- | --- | --- | --- |
+| [repo-name](comparisons/repo-name.md) | Partially Aligned | Good | Partial | Good | No fix needed. |
+```
+
+Each comparison report deterministically extracts normalized markdown sections from the
+baseline summary and the OpenClaw context. It maps equivalent headings such as
+`Gaps / Risks` to `Open Issues`, `Primary Suggested Next Step` to `Next Step`, and
+`Maturity` into current-state comparison. Missing OpenClaw contexts are listed clearly
+in the comparison index and receive a short missing-context report.
+
 ## Limitations
 
 - This MVP only uses README content, so summaries may miss important context from source files, issues, pull requests, or commit history.
@@ -200,11 +262,13 @@ Example baseline index shape:
 - GitHub API rate limits and permissions depend on the token used.
 - The app does not create a web UI, database, Docker setup, scheduler, or GitHub repository.
 - Dry runs do not validate OpenAI behavior because they intentionally skip API calls.
+- OpenClaw comparison is deterministic and markdown-based; it does not use an LLM evaluator yet.
+- Comparison grading is a lightweight operational signal, not a semantic proof of correctness.
 
 ## Roadmap
 
 - Add optional source tree metadata to improve operational context.
-- Add comparison tooling against OpenClaw-generated context summaries.
+- Add optional LLM-assisted evaluation for OpenClaw comparison reports.
 - Add resumable runs for large repository inventories.
 - Add optional issue and pull request signal extraction.
 - Add tests around filtering, README handling, and writer output.

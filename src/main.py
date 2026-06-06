@@ -7,8 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from github_client import GitHubClient, GitHubError
-from summarizer import OpenAISummarizer, SummarizerError
+from compare_openclaw import generate_comparisons
 from writer import repo_summary_path, write_baseline_index, write_repo_inventory, write_repo_summary
 
 
@@ -68,6 +67,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip repos that already have outputs/summaries/<repo-name>.md.",
     )
+    parser.add_argument(
+        "--compare-openclaw",
+        action="store_true",
+        help="Compare outputs/summaries/*.md with /Users/erickperales/Projects/<repo-name>/context.md.",
+    )
+    parser.add_argument(
+        "--projects-dir",
+        default="/Users/erickperales/Projects",
+        help="Project root used by --compare-openclaw.",
+    )
     return parser.parse_args()
 
 
@@ -123,9 +132,22 @@ def main() -> int:
     args = parse_args()
 
     try:
+        if args.compare_openclaw:
+            results = generate_comparisons(projects_dir=Path(args.projects_dir), repo_name=args.repo)
+            missing = sum(1 for result in results if result.overall == "Missing OpenClaw Context")
+            print(f"Wrote {len(results)} comparison report(s) to outputs/comparisons")
+            if args.repo:
+                print("Skipped comparison index update for single-repository run.")
+            else:
+                print("Wrote outputs/openclaw-comparison-index.md")
+            print(f"Missing OpenClaw contexts: {missing}")
+            return 0
+
         load_dotenv()
         config = load_config(args.config)
         github_token = require_env("GITHUB_TOKEN")
+        from github_client import GitHubClient, GitHubError
+        from summarizer import OpenAISummarizer, SummarizerError
 
         if not args.dry_run:
             openai_api_key = require_env("OPENAI_API_KEY")
@@ -219,9 +241,14 @@ def main() -> int:
         print("Baseline generation complete.")
         return 0
 
-    except (EnvironmentError, FileNotFoundError, ValueError, GitHubError, SummarizerError, json.JSONDecodeError) as error:
-        print(f"Error: {error}", file=sys.stderr)
-        return 1
+    except Exception as error:
+        handled_error_names = {"GitHubError", "SummarizerError"}
+        if isinstance(error, (EnvironmentError, FileNotFoundError, ValueError, json.JSONDecodeError)) or (
+            error.__class__.__name__ in handled_error_names
+        ):
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
+        raise
 
 
 if __name__ == "__main__":
